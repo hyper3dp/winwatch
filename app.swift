@@ -1,38 +1,23 @@
-import SwiftUI
-import WatchKit
+import Foundation
 import CoreBluetooth
 
+// Explicit entry point loop required for cloud binary generation
 @main
-struct WatchApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+struct AppMain {
+    static func main() {
+        let bleManager = WatchBLEManager()
+        print("Apple Watch Background Unlock Service Initialized.")
+        
+        // Keeps the background thread alive to broadcast the Bluetooth signal
+        RunLoop.current.run()
     }
 }
 
-struct ContentView: View {
-    @StateObject private var bleManager = WatchBLEManager()
-
-    var body: some View {
-        VVisualStack {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 40))
-                .foregroundColor(.green)
-            Text("PC Unlocker")
-                .font(.headline)
-            Text(bleManager.isAdvertising ? "Broadcasting..." : "Stopped")
-                .font(.caption)
-                .foregroundColor(.gray)
-        }
-    }
-}
-
-class WatchBLEManager: NSObject, ObservableObject, CBPeripheralManagerDelegate {
+class WatchBLEManager: NSObject, CBPeripheralManagerDelegate {
     var peripheralManager: CBPeripheralManager!
-    @Published var isAdvertising = false
+    var isAdvertising = false
     
-    // MUST match the Guid in your C# .exe file exactly!
+    // MUST match the Guid in your Windows C# application (.exe) exactly!
     let serviceUUID = CBUUID(string: "E2C56DB5-DFFB-48D2-B060-D0F5A71096E0") 
     
     override init() {
@@ -46,6 +31,7 @@ class WatchBLEManager: NSObject, ObservableObject, CBPeripheralManagerDelegate {
             peripheralManager.add(service)
             peripheralManager.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [serviceUUID]])
             isAdvertising = true
+            print("Broadcasting unlock signal to Windows PC...")
         } else {
             isAdvertising = false
         }
