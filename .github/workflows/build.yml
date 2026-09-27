@@ -1,0 +1,25 @@
+name: Build Watch App
+on: [push]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Compile Watch App Binary
+        run: |
+          xcrun -sdk watchos swiftc App.swift -o WatchUnlockerApp
+          mkdir -p Payload
+          cp WatchUnlockerApp Payload/
+          zip -r WatchUnlocker.ipa Payload
+          
+      - name: Upload Finished App File
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppleWatchApp
+          path: WatchUnlocker.ipa
