@@ -5,23 +5,35 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      # 1. Using an updated version that natively supports Node 24
       - name: Checkout Code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
 
-      - name: Set up Swift WatchOS Project Structure
+      - name: Create and Build Xcode Project
         run: |
-          # Create a proper Apple Watch app bundle layout
-          mkdir -p WatchUnlockerApp.app
+          # 1. Create a minimal command-line project layout using Swift Package Manager
+          mkdir -p WatchUnlockerProject
+          cd WatchUnlockerProject
+          swift package init --type executable
           
-          # Compile the Swift code using the standard watchos framework deployment target
-          xcrun -sdk watchos swiftc App.swift \
-            -target arm64_32-apple-watchos6.0 \
-            -o WatchUnlockerApp.app/WatchUnlockerApp \
-            -parse-as-library
+          # 2. Move your App.swift code into the compilation source directory
+          rm Sources/main.swift
+          cp ../App.swift Sources/App.swift
+          
+          # 3. Use xcodebuild to properly compile the target for watchOS 
+          # This handles all framework linking (SwiftUI, WatchKit, CoreBluetooth) automatically
+          xcodebuild -buildwithpackages \
+            -scheme WatchUnlockerProject \
+            -destination 'generic/platform=watchOS' \
+            -configuration Release \
+            CONFIGURATION_BUILD_DIR=../build
             
-          # Generate a minimal valid Info.plist so the Watch can parse the binary
-          cat <<EOF > WatchUnlockerApp.app/Info.plist
+          # 4. Bundle the resulting executable package into a deployable IPA
+          cd ..
+          mkdir -p Payload/WatchUnlockerApp.app
+          cp build/WatchUnlockerProject Payload/WatchUnlockerApp.app/WatchUnlockerApp
+          
+          # 5. Generate a valid Info.plist inside the app bundle
+          cat <<EOF > Payload/WatchUnlockerApp.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
           <plist version="1.0">
@@ -44,9 +56,7 @@ jobs:
           </plist>
           EOF
           
-          # Pack it up into a standard installation Payload structure
-          mkdir -p Payload
-          cp -r WatchUnlockerApp.app Payload/
+          # Zip everything into the final installable file
           zip -r WatchUnlocker.ipa Payload
 
       - name: Upload Finished App File
