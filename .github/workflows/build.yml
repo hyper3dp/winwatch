@@ -8,29 +8,19 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4.2.2
 
-      - name: Generate and Compile Xcode Project
+      - name: Set up Swift watchOS 26 Project Structure
         run: |
-          # 1. Create a structured iOS/watchOS application folder
-          mkdir -p WatchUnlocker/WatchUnlocker
-          
-          # 2. Put your App.swift file into the project source folder
-          cp App.swift WatchUnlocker/WatchUnlocker/App.swift
-          
-          # 3. Use an automation script to build the project without needing a pre-existing project file
-          cd WatchUnlocker
-          
-          # We use single-file swift compilation targeted specifically at the watchOS framework architecture
-          xcrun -sdk watchos swiftc WatchUnlocker/App.swift \
-            -target arm64_32-apple-watchos6.0 \
-            -sdk $(xcrun --sdk watchos --show-sdk-path) \
-            -emit-executable \
-            -o WatchUnlockerApp
-            
-          # 4. Pack it inside an App bundle container layout
+          # 1. Create a structured watchOS application folder container
           mkdir -p WatchUnlockerApp.app
-          mv WatchUnlockerApp WatchUnlockerApp.app/WatchUnlockerApp
           
-          # 5. Build a comprehensive Info.plist mapping out the watch app properties
+          # 2. Compile the swift code pointing explicitly at the modern watchOS 26 target runtime
+          xcrun -sdk watchos swiftc app.swift \
+            -target arm64_32-apple-watchos26.0 \
+            -sdk $(xcrun --sdk watchos --show-sdk-path) \
+            -o WatchUnlockerApp.app/WatchUnlockerApp \
+            -parse-as-library
+            
+          # 3. Generate a standard Info.plist mapped for modern watch environments
           cat <<EOF > WatchUnlockerApp.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
@@ -49,17 +39,16 @@ jobs:
               <key>CFBundleVersion</key>
               <string>1</string>
               <key>MinimumOSVersion</key>
-              <string>6.0</string>
+              <string>26.0</string>
               <key>WKWatchKitApp</key>
               <true/>
           </dict>
           </plist>
           EOF
           
-          # 6. Archive everything into a standard installation Payload package
-          mkdir -p ../Payload
-          cp -r WatchUnlockerApp.app ../Payload/
-          cd ..
+          # 4. Pack it inside an installation Payload archive directory
+          mkdir -p Payload
+          cp -r WatchUnlockerApp.app Payload/
           zip -r WatchUnlocker.ipa Payload
 
       - name: Upload Finished App File
