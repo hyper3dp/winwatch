@@ -16,8 +16,8 @@ jobs:
           swift package init --type executable
           
           # 2. Swap out the template main file with your Apple Watch code
-          rm Sources/main.swift
-          cp ../app.swift Sources/main.swift
+          rm -f Sources/WatchBuild/WatchBuild.swift
+          cp ../app.swift Sources/WatchBuild/main.swift
           
           # 3. Compile the target binary cleanly using native macOS SPM pipelines
           swift build -c release
