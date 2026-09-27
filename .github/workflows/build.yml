@@ -1,3 +1,4 @@
+
 name: Build Watch App
 on: [push]
 
@@ -8,16 +9,46 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
-
-      - name: Compile Watch App Binary
+      - name: Set up Swift WatchOS Project Structure
         run: |
-          xcrun -sdk watchos swiftc App.swift -o WatchUnlockerApp
-          mkdir -p Payload
-          cp WatchUnlockerApp Payload/
-          zip -r WatchUnlocker.ipa Payload
+          # 1. Create a proper standalone WatchApp bundle layout
+          mkdir -p WatchUnlockerApp.app
           
+          # 2. Compile the swift code as a watchOS application target
+          xcrun -sdk watchos swiftc App.swift \
+            -target arm64_32-apple-watchos \
+            -o WatchUnlockerApp.app/WatchUnlockerApp \
+            -parse-as-library
+            
+          # 3. Generate a minimal valid Info.plist so the Watch can read the app package
+          cat <<EOF > WatchUnlockerApp.app/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>WatchUnlockerApp</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.custom.WatchUnlockerApp</string>
+              <key>CFBundleName</key>
+              <string>WatchUnlockerApp</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>WKWatchKitApp</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
+          # 4. Pack it up into a standard iOS/watchOS Payload folder structure
+          mkdir -p Payload
+          cp -r WatchUnlockerApp.app Payload/
+          zip -r WatchUnlocker.ipa Payload
+
       - name: Upload Finished App File
         uses: actions/upload-artifact@v4
         with:
