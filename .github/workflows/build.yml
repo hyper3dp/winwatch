@@ -8,26 +8,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4.2.2
 
-      - name: Set up Swift watchOS 26 Project Structure
+      - name: Install Project Generator
+        run: brew install xcodegen
+
+      - name: Configure and Compile watchOS 26 Target
         run: |
-          # 1. Create a structured watchOS application folder container
-          mkdir -p WatchUnlockerApp.app
-          
-          # 2. Compile the swift code pointing explicitly at the modern watchOS 26 target runtime
-          xcrun -sdk watchos swiftc app.swift \
-            -target arm64_32-apple-watchos26.0 \
-            -sdk $(xcrun --sdk watchos --show-sdk-path) \
-            -o WatchUnlockerApp.app/WatchUnlockerApp \
-            -parse-as-library
-            
-          # 3. Generate a standard Info.plist mapped for modern watch environments
-          cat <<EOF > WatchUnlockerApp.app/Info.plist
+          # 1. Create a definition file instructing Xcode how to link SwiftUI and CoreBluetooth
+          cat <<EOF > project.yml
+          name: WatchUnlocker
+          options:
+            bundleIdPrefix: com.custom
+          targets:
+            WatchUnlockerApp:
+              type: watchkitapp
+              platform: watchOS
+              deploymentTarget: "10.0"
+              sources: [app.swift]
+              settings:
+                PRODUCT_BUNDLE_IDENTIFIER: com.custom.WatchUnlockerApp
+                INFOPLIST_FILE: Info.plist
+          EOF
+
+          # 2. Generate a standard Info.plist matching watchOS system environments
+          cat <<EOF > Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>WatchUnlockerApp</string>
+              <string>\$(EXECUTABLE_NAME)</string>
               <key>CFBundleIdentifier</key>
               <string>com.custom.WatchUnlockerApp</string>
               <key>CFBundleName</key>
@@ -38,17 +47,27 @@ jobs:
               <string>1.0</string>
               <key>CFBundleVersion</key>
               <string>1</string>
-              <key>MinimumOSVersion</key>
-              <string>26.0</string>
               <key>WKWatchKitApp</key>
               <true/>
           </dict>
           </plist>
           EOF
-          
-          # 4. Pack it inside an installation Payload archive directory
+
+          # 3. Automatically build the standard project infrastructure
+          xcodegen generate
+
+          # 4. Use native Apple tools to compile the workspace target into a binary
+          xcodebuild -project WatchUnlocker.xcodeproj \
+            -scheme WatchUnlockerApp \
+            -destination 'generic/platform=watchOS' \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
+
+          # 5. Package the resulting build assets into an installable application container
           mkdir -p Payload
-          cp -r WatchUnlockerApp.app Payload/
+          cp -r build/Release-watchos/WatchUnlockerApp.app Payload/
           zip -r WatchUnlocker.ipa Payload
 
       - name: Upload Finished App File
@@ -56,3 +75,4 @@ jobs:
         with:
           name: AppleWatchApp
           path: WatchUnlocker.ipa
+
